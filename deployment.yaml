@@ -1,0 +1,90 @@
+---
+# Source: mlflow-deployment/templates/mlflowservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels: 
+    app: mlflow
+  name: mlflow-service
+spec: 
+  ports: 
+    - 
+      name: mlflow
+      nodePort: 30004
+      port: 80
+      targetPort: 80
+  selector: 
+    app: mlflow
+  type: NodePort
+---
+# Source: mlflow-deployment/templates/mlflowdeployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mlflow
+  name: mlflow-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      imagePullSecrets:
+        - name: usb-artifactory-prod1
+      containers:
+        -
+          image:  artifactory.us.bank-dns.com:5000/edai/edai/data-science/ai/ml-micro-services/dockerimages/mlflow-server-image:0.0.1-null-5
+          name: mlflow
+          ports:
+            -
+              containerPort: 80
+        #  volumeMounts:
+        #    - mountPath: 
+        #      name: mlflow-pv-volume
+          env:
+            -
+              name: BACKEND_STORE_URI
+              value: postgresql://postgresadmin:admin123@10.43.163.147:5432/postgresdb
+            -
+              name: DEFAULT_ARTIFACT_ROOT
+              value: gs://mlflow_artifact_root_bucket
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+   #   volumes:
+   #     -
+   #       name: mlflow-pv-volume
+   #       persistentVolumeClaim:
+   #         claimName: mlflow-pv-claim
+---
+# Source: mlflow-deployment/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "mlflow-cluster-mlflow-deployment-test-connection"
+  labels:
+    helm.sh/chart: mlflow-deployment-0.1.0
+    app.kubernetes.io/name: mlflow-deployment
+    app.kubernetes.io/instance: mlflow-cluster
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['mlflow-cluster-mlflow-deployment:80']
+  restartPolicy: Never
+# + 17:26:23

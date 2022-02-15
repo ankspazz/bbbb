@@ -1,0 +1,43 @@
+#FROM python:3.8-slim-buster
+#FROM artifactory.us.bank-dns.com:5000/devops/os-base-images/ubuntu-20:2021-09-30-12-52-57
+
+FROM artifactory.us.bank-dns.com:5000/python:3.7.5-slim-stretch
+
+LABEL MAINTAINER="" \
+           CARID="8576" \
+           ASSIGNEEGROUP="APL_UDAIP:ML Ops"
+
+ENV http_proxy=http://web-proxyapp.us.bank-dns.com:3128
+ENV https_proxy=http://web-proxyapp.us.bank-dns.com:3128
+
+
+# Build dependencies
+
+RUN apt-get -y update && \
+    apt-get -y upgrade && \
+    apt-get -y install curl wget gnupg2 ca-certificates vim pciutils iputils-ping postgresql-client
+
+
+
+# Pip dependencies
+COPY ./requirements.txt ./requirements.txt
+COPY ./*.pem ./
+ENV PGSSLMODE=verify-ca
+ENV PGSSLROOTCERT=ca.pem
+ENV PGSSLCERT=cert.pem
+ENV PGSSLKEY=key.pem
+
+RUN chmod 600 ./key.pem
+
+RUN pip install -r requirements.txt
+
+ENV BACKEND_STORE_URI autoinfer_db
+ENV DEFAULT_ARTIFACT_ROOT mlflow_artifact_root_bucket
+
+# Port
+EXPOSE 8888
+
+#VOLUME ["/Users/c072190/mlflow-data"]
+
+
+CMD mlflow server --host 0.0.0.0 --port 8888 --backend-store-uri $BACKEND_STORE_URI --default-artifact-root $DEFAULT_ARTIFACT_ROOT
